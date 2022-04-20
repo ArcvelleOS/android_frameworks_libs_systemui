@@ -377,6 +377,30 @@ constructor(
     }
 
     /**
+     * Clears both the in-memory cache and the SQLite persistent icon DB.
+     * Can be invoked from any thread; ensures execution on the cache worker thread.
+     */
+    open fun clear() {
+        if (Looper.myLooper() == workerHandler.looper) {
+            clearBg()
+        } else {
+            workerHandler.post { clearBg() }
+        }
+    }
+
+    @Synchronized
+    private fun clearBg() {
+        try {
+            defaultIcon = null
+            userFlagOpMap.clear()
+            iconDb.clear()
+            cache.clear()
+        } catch (e: SQLiteReadOnlyDatabaseException) {
+            Log.e(TAG, "failed to clear the launcher's icon db or cache.", e)
+        }
+    }
+
+    /**
      * Adds a default package entry in the cache. This entry is not persisted and will be removed
      * when the cache is flushed.
      */

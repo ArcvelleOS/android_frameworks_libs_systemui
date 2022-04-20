@@ -37,6 +37,7 @@ import com.android.launcher3.icons.FastBitmapDrawableDelegate.DelegateFactory
 import com.android.launcher3.icons.GraphicsUtils.getColorMultipliedFilter
 import com.android.launcher3.icons.GraphicsUtils.resizeToContentSize
 import java.util.Calendar
+import java.util.TimeZone
 import java.util.concurrent.TimeUnit.MINUTES
 
 /**
@@ -96,6 +97,7 @@ private constructor(base: AdaptiveIconDrawable, private val animationInfo: Clock
     ) : DelegateFactory {
 
         fun applyTime(time: Calendar, foregroundDrawable: LayerDrawable): Boolean {
+            time.timeZone = TimeZone.getDefault()
             time.timeInMillis = System.currentTimeMillis()
 
             // We need to rotate by the difference from the default time if one is specified.
@@ -273,22 +275,42 @@ private constructor(base: AdaptiveIconDrawable, private val animationInfo: Clock
                 res.getDrawableForDensity(drawableId, iconDpi)?.mutate() as? AdaptiveIconDrawable
                     ?: return null
 
+            return forIcon(
+                drawable,
+                metadata.getInt(HOUR_INDEX_METADATA_KEY, INVALID_VALUE),
+                metadata.getInt(MINUTE_INDEX_METADATA_KEY, INVALID_VALUE),
+                metadata.getInt(SECOND_INDEX_METADATA_KEY, INVALID_VALUE),
+                metadata.getInt(DEFAULT_HOUR_METADATA_KEY, 0),
+                metadata.getInt(DEFAULT_MINUTE_METADATA_KEY, 0),
+                metadata.getInt(DEFAULT_SECOND_METADATA_KEY, 0),
+            )
+        }
+
+        /** Uses the same bitmap delegate and ticking lifecycle for icon-pack clocks. */
+        @JvmStatic
+        fun forIcon(
+            icon: Drawable,
+            hourLayerIndex: Int,
+            minuteLayerIndex: Int,
+            secondLayerIndex: Int,
+            defaultHour: Int,
+            defaultMinute: Int,
+            defaultSecond: Int,
+        ): ClockDrawableWrapper? {
+            val drawable = icon.mutate() as? AdaptiveIconDrawable ?: return null
             val foreground = drawable.foreground as? LayerDrawable ?: return null
             val layerCount = foreground.numberOfLayers
 
-            fun getLayerIndex(key: String) =
-                metadata.getInt(key, INVALID_VALUE).let {
-                    if (it < 0 || it >= layerCount) INVALID_VALUE else it
-                }
+            fun validIndex(index: Int) = if (index in 0 until layerCount) index else INVALID_VALUE
             var animInfo =
                 ClockAnimationInfo(
-                    hourLayerIndex = getLayerIndex(HOUR_INDEX_METADATA_KEY),
-                    minuteLayerIndex = getLayerIndex(MINUTE_INDEX_METADATA_KEY),
-                    secondLayerIndex = getLayerIndex(SECOND_INDEX_METADATA_KEY),
-                    defaultHour = metadata.getInt(DEFAULT_HOUR_METADATA_KEY, 0),
-                    defaultMinute = metadata.getInt(DEFAULT_MINUTE_METADATA_KEY, 0),
-                    defaultSecond = metadata.getInt(DEFAULT_SECOND_METADATA_KEY, 0),
-                    baseDrawableState = drawable.constantState!!,
+                    hourLayerIndex = validIndex(hourLayerIndex),
+                    minuteLayerIndex = validIndex(minuteLayerIndex),
+                    secondLayerIndex = validIndex(secondLayerIndex),
+                    defaultHour = Math.floorMod(defaultHour, 12),
+                    defaultMinute = Math.floorMod(defaultMinute, 60),
+                    defaultSecond = Math.floorMod(defaultSecond, 60),
+                    baseDrawableState = drawable.constantState ?: return null,
                 )
 
             if (DISABLE_SECONDS && animInfo.secondLayerIndex != INVALID_VALUE) {
