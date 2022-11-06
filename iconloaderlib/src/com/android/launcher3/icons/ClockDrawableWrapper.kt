@@ -94,6 +94,7 @@ private constructor(base: AdaptiveIconDrawable, private val animationInfo: Clock
         val baseDrawableState: ConstantState,
         val themeFgColor: Int = NO_COLOR,
         val shader: Shader? = null,
+        val foregroundScale: Float = 1f,
     ) : DelegateFactory {
 
         fun applyTime(time: Calendar, foregroundDrawable: LayerDrawable): Boolean {
@@ -170,6 +171,8 @@ private constructor(base: AdaptiveIconDrawable, private val animationInfo: Clock
             animInfo.applyTime(time, foreground)
             canvas.resizeToContentSize(bounds, iconShape.pathSize.toFloat()) {
                 clipPath(iconShape.path)
+                val center = iconShape.pathSize / 2f
+                scale(animInfo.foregroundScale, animInfo.foregroundScale, center, center)
                 foreground.draw(this)
             }
             reschedule()

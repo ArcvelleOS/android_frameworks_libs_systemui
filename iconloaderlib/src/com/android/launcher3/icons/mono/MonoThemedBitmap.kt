@@ -34,11 +34,12 @@ class MonoThemedBitmap(
     val mono: Bitmap,
     private val colorProvider: (Context) -> ColorList = ThemedIconDelegate.Companion::getColors,
     @get:VisibleForTesting val luminanceDelta: Double? = null,
+    private val foregroundScale: Float = 1f,
 ) : ThemedBitmap {
 
     override fun newDelegateFactory(info: BitmapInfo, context: Context): DelegateFactory =
         getUpdatedColors(context).let {
-            ThemedIconInfo(mono, it.iconBackgroundColor, it.iconForegroundColor)
+            ThemedIconInfo(mono, it.iconBackgroundColor, it.iconForegroundColor, foregroundScale)
         }
 
     override fun serialize(): ByteArray {
@@ -66,12 +67,14 @@ class MonoThemedBitmap(
 class ClockThemedBitmap(
     private val animInfo: ClockAnimationInfo,
     private val colorProvider: (Context) -> ColorList = ThemedIconDelegate.Companion::getColors,
+    private val foregroundScale: Float = 1f,
 ) : ThemedBitmap {
 
     override fun newDelegateFactory(info: BitmapInfo, context: Context): DelegateFactory =
         colorProvider(context).let { colors ->
             animInfo.copy(
                 themeFgColor = colors.iconForegroundColor,
+                foregroundScale = foregroundScale,
                 shader =
                     LinearGradient(
                         0f,

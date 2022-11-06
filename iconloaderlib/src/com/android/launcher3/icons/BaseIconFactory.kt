@@ -162,10 +162,14 @@ constructor(
         }
 
         // Create the bitmap first
-        val oldBounds = icon.bounds
+        val oldBounds = Rect(icon.bounds)
+
+        // Read the hint from the source. A full-bleed wrapper has its own configuration
+        // flags and would otherwise lose the pack's shape/transparent background.
+        val noWrapHintSet = (icon.changingConfigurations and CONFIG_HINT_NO_WRAP) != 0
 
         var tempIcon: Drawable = icon
-        if (options.isFullBleed && icon is BitmapDrawable) {
+        if (options.isFullBleed && !noWrapHintSet && icon is BitmapDrawable) {
             // If the source is a full-bleed icon, create an adaptive icon by insetting this icon to
             // the extra padding
             var inset = AdaptiveIconDrawable.getExtraInsetFraction()
@@ -177,7 +181,6 @@ constructor(
                 )
         }
 
-        val noWrapHintSet = (tempIcon.changingConfigurations and CONFIG_HINT_NO_WRAP) != 0
         if (options.wrapNonAdaptiveIcon && !noWrapHintSet) {
             tempIcon = wrapToAdaptiveIcon(tempIcon, options)
         }
@@ -203,9 +206,21 @@ constructor(
             )
         if (icon is Extender) {
             info = icon.getUpdatedBitmapInfo(info, this)
+            if (noWrapHintSet) {
+                // Animated pack icons must also retain their native mask when the caller
+                // supplies a different launcher shape to BitmapInfo.newIcon().
+                val nativeShape = defaultIconShape
+                val delegateFactory = info.delegateFactory
+                info = info.copy(
+                    delegateFactory = FastBitmapDrawableDelegate.DelegateFactory {
+                        bitmapInfo, _, paint, host ->
+                        delegateFactory.newDelegate(bitmapInfo, nativeShape, paint, host)
+                    }
+                )
+            }
         }
 
-        if (IconProvider.ATLEAST_T && themeController != null) {
+        if (IconProvider.ATLEAST_T && themeController != null && !noWrapHintSet) {
             info =
                 info.copy(
                     themedBitmap =

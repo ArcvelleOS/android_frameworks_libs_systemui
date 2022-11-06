@@ -47,9 +47,10 @@ import com.android.launcher3.icons.ThemedBitmap
 import java.nio.ByteBuffer
 
 @TargetApi(Build.VERSION_CODES.TIRAMISU)
-class MonoIconThemeController(
+class MonoIconThemeController @JvmOverloads constructor(
     private val shouldForceThemeIcon: Boolean = false,
     private val colorProvider: (Context) -> ColorList = ThemedIconDelegate.Companion::getColors,
+    private val foregroundScale: Float = 1f,
 ) : IconThemeController {
 
     override val themeID = "with-theme"
@@ -73,6 +74,7 @@ class MonoIconThemeController(
                         baseDrawableState = AdaptiveIconDrawable(null, monoDrawable).constantState!!
                     ),
                     colorProvider,
+                    foregroundScale,
                 )
             } else {
                 return ThemedBitmap.NOT_SUPPORTED
@@ -84,6 +86,7 @@ class MonoIconThemeController(
             return MonoThemedBitmap(
                 InsetDrawable(mono, -getExtraInsetFraction()).toAlphaBitmap(factory.iconBitmapSize),
                 colorProvider,
+                foregroundScale = foregroundScale,
             )
         }
 
@@ -94,6 +97,7 @@ class MonoIconThemeController(
                 wrappedIcon.toAlphaBitmap(factory.iconBitmapSize),
                 colorProvider,
                 monoFactory.luminanceDiff,
+                foregroundScale,
             )
         }
 
@@ -121,13 +125,14 @@ class MonoIconThemeController(
                 MonoThemedBitmap(
                     ByteBuffer.wrap(bytes).readMonoBitmap(icon.width, icon.height),
                     colorProvider,
+                    foregroundScale = foregroundScale,
                 )
             }
             (expectedSize + MonoThemedBitmap.DOUBLE_BYTE_SIZE) -> {
                 val buffer = ByteBuffer.wrap(bytes)
                 val monoBitmap = buffer.readMonoBitmap(icon.width, icon.height)
                 val luminanceDelta = buffer.asDoubleBuffer().get()
-                MonoThemedBitmap(monoBitmap, colorProvider, luminanceDelta)
+                MonoThemedBitmap(monoBitmap, colorProvider, luminanceDelta, foregroundScale)
             }
             else -> ThemedBitmap.NOT_SUPPORTED
         }
@@ -153,7 +158,7 @@ class MonoIconThemeController(
             it.setTint(colors.iconForegroundColor)
             return@createThemedAdaptiveIcon AdaptiveIconDrawable(
                 ColorDrawable(colors.iconBackgroundColor),
-                it,
+                scaleForeground(it),
             )
         }
 
@@ -175,12 +180,15 @@ class MonoIconThemeController(
                     },
                 )
             )
-        // create new background color by combing fg and bg colors to match overall foreground.
-        // TODO: color doesn't always perfectly match the foreground.
-        val parallaxBackground =
-            ColorDrawable(bgColor).apply { colorFilter = BlendModeColorFilter(fgColor, SRC_IN) }
-        return AdaptiveIconDrawable(parallaxBackground, opaqueForeground)
+        return AdaptiveIconDrawable(
+            ColorDrawable(bgColor),
+            scaleForeground(opaqueForeground),
+        )
     }
+
+    private fun scaleForeground(icon: Drawable): Drawable =
+        if (foregroundScale >= 1f) icon
+        else InsetDrawable(icon, (1f - foregroundScale.coerceAtLeast(0.1f)) / 2f)
 
     /**
      * Scaled drawable for [MonoThemedBitmap] to render content at correct, pre-zoomed scale and

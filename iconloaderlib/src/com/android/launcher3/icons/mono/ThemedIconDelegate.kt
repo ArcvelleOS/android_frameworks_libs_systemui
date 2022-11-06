@@ -47,6 +47,10 @@ class ThemedIconDelegate(
         }
 
     private val shapeBounds = Rect(0, 0, bitmapInfo.icon.width, bitmapInfo.icon.height)
+    private val glyphBounds = Rect(shapeBounds).apply {
+        val glyphInset = (width() * (1f - constantState.foregroundScale.coerceIn(0.1f, 1f)) / 2).toInt()
+        inset(glyphInset, glyphInset)
+    }
 
     init {
         paint.color = constantState.colorBg
@@ -64,7 +68,7 @@ class ThemedIconDelegate(
         canvas.resizeToContentSize(bounds, iconShape.pathSize.toFloat()) {
             clipPath(iconShape.path)
             drawPaint(paint)
-            drawBitmap(monoIcon, null, shapeBounds, monoPaint)
+            drawBitmap(monoIcon, null, glyphBounds, monoPaint)
         }
     }
 
@@ -99,7 +103,12 @@ class ThemedIconDelegate(
     }
 }
 
-class ThemedIconInfo(val mono: Bitmap, val colorBg: Int, val colorFg: Int) : DelegateFactory {
+class ThemedIconInfo @JvmOverloads constructor(
+    val mono: Bitmap,
+    val colorBg: Int,
+    val colorFg: Int,
+    val foregroundScale: Float = 1f,
+) : DelegateFactory {
 
     override fun newDelegate(
         bitmapInfo: BitmapInfo,
